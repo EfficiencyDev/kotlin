@@ -31,8 +31,10 @@ import org.jetbrains.kotlin.resolve.constants.TypedCompileTimeConstant
 import org.jetbrains.kotlin.resolve.constants.evaluate.ConstantExpressionEvaluator
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.scopes.receivers.ExpressionReceiver
+import org.jetbrains.kotlin.types.CommonSupertypes
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.expressions.ControlStructureTypingUtils
+import org.jetbrains.kotlin.types.typeUtil.isNothingOrNullableNothing
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -333,12 +335,15 @@ class DiagnosticReporterByTrackingStrategy(
 
                 (position as? ExpectedTypeConstraintPosition)?.let {
                     val call = it.topLevelCall.psiKotlinCall.psiCall.callElement.safeAs<KtExpression>()
+                    val inferredType =
+                        if (!constraintError.lowerKotlinType.isNothingOrNullableNothing()) constraintError.lowerKotlinType
+                        else CommonSupertypes.commonSupertype(listOf(constraintError.upperKotlinType, constraintError.lowerKotlinType))
                     reportIfNonNull(call) {
                         trace.report(
                             Errors.TYPE_MISMATCH.on(
                                 it,
                                 constraintError.upperKotlinType,
-                                constraintError.lowerKotlinType
+                                inferredType
                             )
                         )
                     }
