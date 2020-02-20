@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.resolve.calls
 
+import com.intellij.psi.impl.source.tree.LeafPsiElement
 import org.jetbrains.kotlin.builtins.UnsignedTypes
 import org.jetbrains.kotlin.builtins.functions.FunctionInvokeDescriptor
 import org.jetbrains.kotlin.builtins.isExtensionFunctionType
@@ -147,8 +148,8 @@ class DiagnosticReporterByTrackingStrategy(
             NoneCallableReferenceCandidates::class.java -> {
                 val expression = diagnostic.cast<NoneCallableReferenceCandidates>()
                     .argument.safeAs<CallableReferenceKotlinCallArgumentImpl>()?.ktCallableReferenceExpression
-                reportIfNonNull(expression) {
-                    trace.report(UNRESOLVED_REFERENCE.on(it.callableReference, it.callableReference))
+                if (expression != null) {
+                    trace.report(UNRESOLVED_REFERENCE.on(expression.callableReference, expression.callableReference))
                 }
             }
 
@@ -156,19 +157,20 @@ class DiagnosticReporterByTrackingStrategy(
                 val ambiguityDiagnostic = diagnostic as CallableReferenceCandidatesAmbiguity
                 val expression = ambiguityDiagnostic.argument.psiExpression.safeAs<KtCallableReferenceExpression>()
                 val candidates = ambiguityDiagnostic.candidates.map { it.candidate }
-                reportIfNonNull(expression) {
-                    trace.reportDiagnosticOnce(CALLABLE_REFERENCE_RESOLUTION_AMBIGUITY.on(it.callableReference, candidates))
-                    trace.record(BindingContext.AMBIGUOUS_REFERENCE_TARGET, it.callableReference, candidates)
+                if (expression != null) {
+                    trace.reportDiagnosticOnce(CALLABLE_REFERENCE_RESOLUTION_AMBIGUITY.on(expression.callableReference, candidates))
+                    trace.record(BindingContext.AMBIGUOUS_REFERENCE_TARGET, expression.callableReference, candidates)
                 }
             }
 
             ArgumentTypeMismatchDiagnostic::class.java -> {
                 require(diagnostic is ArgumentTypeMismatchDiagnostic)
-                reportIfNonNull(callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()) {
-                    if (it.isNull()) {
-                        trace.reportDiagnosticOnce(NULL_FOR_NONNULL_TYPE.on(it, diagnostic.expectedType))
+                val expression = callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()
+                if (expression != null) {
+                    if (expression.isNull() && expression is KtConstantExpression) {
+                        trace.reportDiagnosticOnce(NULL_FOR_NONNULL_TYPE.on(expression, diagnostic.expectedType))
                     } else {
-                        trace.report(TYPE_MISMATCH.on(it, diagnostic.expectedType, diagnostic.actualType))
+                        trace.report(TYPE_MISMATCH.on(expression, diagnostic.expectedType, diagnostic.actualType))
                     }
                 }
             }
@@ -201,15 +203,11 @@ class DiagnosticReporterByTrackingStrategy(
                 if (argumentExpression !is KtLambdaExpression) return
 
                 val parameter = argumentExpression.valueParameters.getOrNull(parameterIndex)
-                reportIfNonNull(parameter) {
-                    trace.report(CANNOT_INFER_PARAMETER_TYPE.on(it))
+                if (parameter != null) {
+                    trace.report(CANNOT_INFER_PARAMETER_TYPE.on(parameter))
                 }
             }
         }
-    }
-
-    private fun <T> reportIfNonNull(element: T?, report: (T) -> Unit) {
-        if (element != null) report(element)
     }
 
     override fun onCallArgumentName(callArgument: KotlinCallArgument, diagnostic: KotlinCallDiagnostic) {
@@ -236,7 +234,9 @@ class DiagnosticReporterByTrackingStrategy(
         when (diagnostic.javaClass) {
             NonVarargSpread::class.java -> {
                 val spreadElement = callArgument.safeAs<ExpressionKotlinCallArgumentImpl>()?.valueArgument?.getSpreadElement()
-                reportIfNonNull(spreadElement) { trace.report(NON_VARARG_SPREAD.on(it)) }
+                if (spreadElement != null) {
+                    trace.report(NON_VARARG_SPREAD.on(spreadElement))
+                }
             }
         }
     }
@@ -338,7 +338,7 @@ class DiagnosticReporterByTrackingStrategy(
                     val inferredType =
                         if (!constraintError.lowerKotlinType.isNothingOrNullableNothing()) constraintError.lowerKotlinType
                         else CommonSupertypes.commonSupertype(listOf(constraintError.upperKotlinType, constraintError.lowerKotlinType))
-                    reportIfNonNull(call) {
+                    if (call != null) ({ it: KtExpression ->
                         trace.report(
                             Errors.TYPE_MISMATCH.on(
                                 it,
@@ -346,7 +346,8 @@ class DiagnosticReporterByTrackingStrategy(
                                 inferredType
                             )
                         )
-                    }
+                    })(call)
+                    Unit
                 }
 
                 (position as? ExplicitTypeParameterConstraintPosition)?.let {
