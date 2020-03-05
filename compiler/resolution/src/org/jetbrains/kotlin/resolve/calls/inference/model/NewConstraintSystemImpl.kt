@@ -34,6 +34,8 @@ class NewConstraintSystemImpl(
     private val storage = MutableConstraintStorage()
     private var state = State.BUILDING
     private val typeVariablesTransaction: MutableList<TypeVariableMarker> = SmartList()
+    private val properTypesCache: MutableList<KotlinTypeMarker> = SmartList()
+    private val notProperTypesCache: MutableList<KotlinTypeMarker> = SmartList()
 
     private enum class State {
         BUILDING,
@@ -90,6 +92,7 @@ class NewConstraintSystemImpl(
 
         transactionRegisterVariable(variable)
         storage.allTypeVariables[variable.freshTypeConstructor()] = variable
+        notProperTypesCache.clear()
         storage.notFixedTypeVariables[variable.freshTypeConstructor()] = MutableVariableWithConstraints(variable)
     }
 
@@ -189,10 +192,13 @@ class NewConstraintSystemImpl(
         }
 
     override fun addOtherSystem(otherSystem: ConstraintStorage) {
-        otherSystem.allTypeVariables.forEach {
-            transactionRegisterVariable(it.value)
+        if (otherSystem.allTypeVariables.isNotEmpty()) {
+            otherSystem.allTypeVariables.forEach {
+                transactionRegisterVariable(it.value)
+            }
+            storage.allTypeVariables.putAll(otherSystem.allTypeVariables)
+            notProperTypesCache.clear()
         }
-        storage.allTypeVariables.putAll(otherSystem.allTypeVariables)
         for ((variable, constraints) in otherSystem.notFixedTypeVariables) {
             notFixedTypeVariables[variable] = MutableVariableWithConstraints(constraints.typeVariable, constraints.constraints)
         }
@@ -208,7 +214,15 @@ class NewConstraintSystemImpl(
     override fun isProperType(type: KotlinTypeMarker): Boolean {
         checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
         if (storage.allTypeVariables.isEmpty()) return true
-        return !type.contains {
+        if (notProperTypesCache.contains(type)) return false
+        if (properTypesCache.contains(type)) return true
+        return isProperTypeImpl(type).also {
+            (if (it) properTypesCache else notProperTypesCache).add(type)
+        }
+    }
+
+    private fun isProperTypeImpl(type: KotlinTypeMarker): Boolean =
+        !type.contains {
             val capturedType = it.asSimpleType()?.asCapturedType()
             // TODO: change NewCapturedType to markered one for FE-IR
             val typeToCheck = if (capturedType is CapturedTypeMarker && capturedType.captureStatus() == CaptureStatus.FROM_EXPRESSION)
@@ -220,7 +234,6 @@ class NewConstraintSystemImpl(
 
             storage.allTypeVariables.containsKey(typeToCheck.typeConstructor())
         }
-    }
 
     override fun isTypeVariable(type: KotlinTypeMarker): Boolean {
         checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
