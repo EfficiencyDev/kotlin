@@ -48,7 +48,7 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
 
     protected open fun getTestJdkKind(files: List<F>): TestJdkKind {
         for (file in files) {
-            if (InTextDirectivesUtils.isDirectiveDefined(file.content, "FULL_JDK")) {
+            if (file.directives.containsKey("FULL_JDK")) {
                 return TestJdkKind.FULL_JDK
             }
         }
@@ -70,7 +70,11 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
     }
 
 
-    open class TestFile(@JvmField val name: String, @JvmField val content: String) : Comparable<TestFile> {
+    open class TestFile @JvmOverloads constructor(
+        @JvmField val name: String,
+        @JvmField val content: String,
+        @JvmField val directives: Map<String, String?> = emptyMap()
+    ) : Comparable<TestFile> {
         override operator fun compareTo(other: TestFile): Int {
             return name.compareTo(other.name)
         }
