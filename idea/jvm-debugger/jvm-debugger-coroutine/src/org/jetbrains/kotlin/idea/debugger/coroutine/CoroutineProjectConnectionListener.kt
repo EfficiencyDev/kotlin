@@ -20,6 +20,7 @@ import com.intellij.xdebugger.*
 import com.intellij.xdebugger.impl.XDebugSessionImpl
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.view.XCoroutineView
+import org.jetbrains.kotlin.idea.debugger.logger
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty

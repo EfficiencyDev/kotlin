@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.idea.debugger.coroutine
 
 import com.intellij.debugger.engine.DebugProcessImpl
+import com.intellij.debugger.engine.JVMStackFrameInfoProvider
 import com.intellij.debugger.engine.JavaValue
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.GeneratedLocation
@@ -193,9 +194,9 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
                     val nextFrame = frames[indexOfCurrentFrame + 1] ?: return null
                     if (isResumeMethodFrame(nextFrame.location().method())) {
                         val context = ExecutionContext(EvaluationContextImpl(suspendContext, nextFrame), nextFrame)
-                        val ch = lookupForResumeContinuation(context, frame.location().method(), frame.threadProxy()) ?: return null
+                        val ch = lookupForResumeContinuation(context, nextFrame.location().method(), frame.threadProxy()) ?: return null
                         val coroutineStackTrace = ch.getAsyncStackTraceIfAny()
-                        CoroutinePreflightFrame(frame, nextFrame, indexOfCurrentFrame, coroutineStackTrace)
+                        return CoroutinePreflightFrame(frame, nextFrame, indexOfCurrentFrame, coroutineStackTrace)
                     }
                 }
             }
@@ -301,8 +302,15 @@ class CoroutinePreflightFrame(
     val resumeWithFrame: StackFrameProxyImpl,
     val preflightIndex: Int,
     val coroutineStackFrame: List<CoroutineStackFrameItem>
-) : KotlinStackFrame(resumeWithFrame) {
+) : KotlinStackFrame(resumeWithFrame), JVMStackFrameInfoProvider {
     override fun customizePresentation(component: ColoredTextContainer) {
         super.customizePresentation(component)
     }
+
+    override fun isInLibraryContent() =
+        true
+
+    override fun isSynthetic() =
+        true
+
 }
