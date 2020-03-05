@@ -12,46 +12,44 @@ import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
-import com.intellij.debugger.ui.impl.watch.MethodsTracker
-import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl
-import com.intellij.xdebugger.frame.XStackFrame
-import org.jetbrains.kotlin.idea.debugger.canRunEvaluation
-import org.jetbrains.kotlin.idea.debugger.coroutine.data.AfterCoroutineStackFrameItem
-import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineStackFrameItem
-import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationHolder
+import org.jetbrains.kotlin.idea.debugger.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
-import org.jetbrains.kotlin.idea.debugger.hopelessAware
-import org.jetbrains.kotlin.idea.debugger.isInKotlinSources
-import org.jetbrains.kotlin.idea.debugger.safeMethod
 
 class CoroutineAsyncStackTraceProvider : AsyncStackTraceProvider {
 
     override fun getAsyncStackTrace(stackFrame: JavaStackFrame, suspendContext: SuspendContextImpl): List<CoroutineStackFrameItem>? {
         val stackFrameList = hopelessAware {
-            lookupForPreflightFrame(stackFrame.stackFrameProxy, suspendContext)
+            if(stackFrame is CoroutinePreflightFrame)
+                lookupForAfterPreflight(stackFrame, suspendContext)
+            else
+                null
         }
         return if (stackFrameList == null || stackFrameList.isEmpty())
             null
         else stackFrameList
     }
 
-    fun findCoroutineStackFrame(
-        frameProxy: StackFrameProxyImpl,
+    fun lookupForAfterPreflight(
+        stackFrame: CoroutinePreflightFrame,
         suspendContext: SuspendContextImpl
     ): List<CoroutineStackFrameItem>? {
-        val location = frameProxy.location()
-        if (!location.isInKotlinSources())
-            return null
+        val resumeWithFrame = stackFrame.resumeWithFrame
+        val threadProxy = resumeWithFrame.threadProxy()
 
-        val method = location.safeMethod() ?: return null
+        if (supportEvaluation(suspendContext, threadProxy)) {
+            val stackFrames = mutableListOf<CoroutineStackFrameItem>()
+            val frames = threadProxy.frames()
+            if (stackFrame.coroutineStackFrame != null)
+                stackFrames.addAll(stackFrame.coroutineStackFrame)
 
-        if (supportEvaluation(suspendContext, frameProxy.threadProxy())) {
-            val context = ExecutionContext(EvaluationContextImpl(suspendContext, frameProxy), frameProxy)
-            return ContinuationHolder.lookup(context, method, frameProxy.threadProxy())?.getAsyncStackTraceIfAny()
+            for (index in stackFrame.preflightIndex + 2..frames.size - 1) {
+                val frame = frames[index]
+                stackFrames.add(AfterCoroutineStackFrameItem(frame))
+            }
+            return stackFrames
         }
         return null
     }
-
 
     fun lookupForPreflightFrame(
         frameProxy: StackFrameProxyImpl,

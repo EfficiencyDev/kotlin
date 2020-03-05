@@ -23,18 +23,3 @@ data class CreateContentParams(val id: String, val component: JComponent, val di
 interface XDebugSessionListenerProvider {
     fun debugSessionListener(session: XDebugSession) : XDebugSessionListener
 }
-
-/**
- * Logger instantiation sample: 'val log by logger'
- */
-val logger: ReadOnlyProperty<Any, Logger> get() = LoggerDelegate()
-
-class LoggerDelegate : ReadOnlyProperty<Any, Logger> {
-    lateinit var logger: Logger
-
-    override fun getValue(thisRef: Any, property: KProperty<*>): Logger {
-        if (!::logger.isInitialized)
-            logger = Logger.getInstance(thisRef.javaClass)
-        return logger
-    }
-}

@@ -36,9 +36,9 @@ import org.jetbrains.kotlin.codegen.inline.KOTLIN_STRATA_NAME
 import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.idea.core.KotlinFileTypeFactory
 import org.jetbrains.kotlin.idea.core.util.CodeInsightUtils
-import org.jetbrains.kotlin.idea.core.util.getLineCount
 import org.jetbrains.kotlin.idea.core.util.getLineStartOffset
 import org.jetbrains.kotlin.idea.debugger.breakpoints.getLambdasAtLineIfAny
+import org.jetbrains.kotlin.idea.debugger.coroutine.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.evaluate.KotlinDebuggerCaches
 import org.jetbrains.kotlin.idea.debugger.stackFrame.KotlinStackFrame
 import org.jetbrains.kotlin.idea.decompiler.classFile.KtClsFile
@@ -80,9 +80,9 @@ class KotlinPositionManager(private val myDebugProcess: DebugProcess) : MultiReq
     }
 
     override fun createStackFrame(frame: StackFrameProxyImpl, debugProcess: DebugProcessImpl, location: Location): XStackFrame? =
-        if (location.isInKotlinSources())
-            KotlinStackFrame(frame)
-        else
+        if (location.isInKotlinSources()) {
+            ContinuationHolder.coroutineExitFrame(frame, debugProcess) ?: KotlinStackFrame(frame)
+        } else
             null
 
     override fun getSourcePosition(location: Location?): SourcePosition? {

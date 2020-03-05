@@ -40,21 +40,17 @@ import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeRestorer
 import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeState
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueContainerNode
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueNodeImpl
-import com.sun.jdi.ClassType
-import com.sun.jdi.Method
 import com.sun.jdi.request.EventRequest
 import org.jetbrains.kotlin.idea.KotlinBundle
-import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineDebuggerContentInfo
+import org.jetbrains.kotlin.idea.debugger.coroutine.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineDebuggerContentInfo.Companion.XCOROUTINE_POPUP_ACTION_GROUP
-import org.jetbrains.kotlin.idea.debugger.coroutine.VersionedImplementationProvider
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.*
-import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.CreateContentParams
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.CreateContentParamsProvider
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.XDebugSessionListenerProvider
-import org.jetbrains.kotlin.idea.debugger.coroutine.util.logger
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
+import org.jetbrains.kotlin.idea.debugger.logger
 import java.awt.BorderLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
@@ -302,7 +298,13 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
                             val position =
                                 getPosition(frame.stackTraceElement.className, frame.stackTraceElement.lineNumber) ?: return false
                             val threadProxy = threadSuspendContext.thread as ThreadReferenceProxyImpl
-                            createStackAndSetFrame(threadProxy, { SyntheticStackFrame(frame.emptyDescriptor(), emptyList(), position) })
+                            createStackAndSetFrame(threadProxy, {
+                                SyntheticStackFrame(
+                                    frame.emptyDescriptor(),
+                                    emptyList(),
+                                    position
+                                )
+                            })
                         }
                         is SuspendCoroutineStackFrameItem -> {
                             val threadProxy = threadSuspendContext.thread as ThreadReferenceProxyImpl
@@ -314,7 +316,13 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
                             val position = getPosition(frame.location.declaringType().name(), frame.location.lineNumber()) ?: return false
                             createStackAndSetFrame(
                                 threadProxy,
-                                { SyntheticStackFrame(frame.emptyDescriptor(), frame.spilledVariables, position) }
+                                {
+                                    SyntheticStackFrame(
+                                        frame.emptyDescriptor(),
+                                        frame.spilledVariables,
+                                        position
+                                    )
+                                }
                             )
 
                         }
@@ -386,7 +394,11 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
             ContinuationHolder.lookup(executionContext, frame.lastObservedFrameFieldRef, frame.stackTraceElement, frame.frame.threadProxy())
                 ?: return null
 
-        return SyntheticStackFrame(frame.emptyDescriptor(), continuation.getSpilledVariables() ?: return null, position)
+        return SyntheticStackFrame(
+            frame.emptyDescriptor(),
+            continuation.getSpilledVariables() ?: return null,
+            position
+        )
     }
 }
 

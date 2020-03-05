@@ -33,9 +33,6 @@ fun getPosition(stackTraceElement: StackTraceElement, project: Project): XSource
     return XDebuggerUtil.getInstance().createPosition(classFile, lineNumber)
 }
 
-class EmptyStackFrameDescriptor(val frame: StackTraceElement, proxy: StackFrameProxyImpl) :
-    StackFrameDescriptorImpl(proxy, MethodsTracker())
-
 class ProjectNotification(val project: Project) {
     fun error(message: String) =
         XDebuggerManagerImpl.NOTIFICATION_GROUP.createNotification(message, MessageType.ERROR).notify(project)

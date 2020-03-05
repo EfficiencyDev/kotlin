@@ -3,22 +3,22 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data
+package org.jetbrains.kotlin.idea.debugger.coroutine
 
+import com.intellij.debugger.engine.DebugProcessImpl
 import com.intellij.debugger.engine.JavaValue
+import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.GeneratedLocation
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
+import com.intellij.ui.ColoredTextContainer
 import com.intellij.xdebugger.frame.XNamedValue
+import com.intellij.xdebugger.frame.XStackFrame
 import com.sun.jdi.*
-import org.jetbrains.kotlin.codegen.coroutines.CONTINUATION_VARIABLE_NAME
-import org.jetbrains.kotlin.idea.debugger.SUSPEND_LAMBDA_CLASSES
-import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineStackFrameItem
-import org.jetbrains.kotlin.idea.debugger.coroutine.data.DefaultCoroutineStackFrameItem
-import org.jetbrains.kotlin.idea.debugger.coroutine.util.logger
+import com.sun.jdi.request.EventRequest
+import org.jetbrains.kotlin.idea.debugger.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
-import org.jetbrains.kotlin.idea.debugger.isSubtype
-import org.jetbrains.kotlin.idea.debugger.safeVisibleVariableByName
+import org.jetbrains.kotlin.idea.debugger.stackFrame.KotlinStackFrame
 
 data class ContinuationHolder(val continuation: ObjectReference, val context: ExecutionContext, val threadProxy: ThreadReferenceProxyImpl) {
     val log by logger
@@ -35,7 +35,7 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
 
     private fun collectFramesRecursively(consumer: MutableList<CoroutineStackFrameItem>) {
         var completion = this
-        val debugMetadataKtType = debugMetadataKtType() ?: return;
+        val debugMetadataKtType = debugMetadataKtType() ?: return
         while (completion.isBaseContinuationImpl()) {
             val location = createLocation(completion, debugMetadataKtType)
 
@@ -91,9 +91,9 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
         val spilledVariables = ArrayList<XNamedValue>(length)
 
         for (index in 0 until length) {
-            val (fieldName, variableName) = getFieldVariableName(rawSpilledVariables, index) ?: continue;
+            val (fieldName, variableName) = getFieldVariableName(rawSpilledVariables, index) ?: continue
 
-            val valueDescriptor = ContinuationValueDescriptorImpl(context.project, continuation, fieldName, variableName);
+            val valueDescriptor = ContinuationValueDescriptorImpl(context.project, continuation, fieldName, variableName)
 
             spilledVariables += JavaValue.create(
                 null,
@@ -164,17 +164,42 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
 //                context.keepReference(continuation)
 //                return ContinuationHolder(continuation, context, threadProxy)
 //            } else {
-                return null
+            return null
 //            }
         }
 
-        fun lookupForResumeContinuation(context: ExecutionContext, method: Method, threadProxy: ThreadReferenceProxyImpl): ContinuationHolder? {
+        fun lookupForResumeContinuation(
+            context: ExecutionContext,
+            method: Method,
+            threadProxy: ThreadReferenceProxyImpl
+        ): ContinuationHolder? {
             if (isResumeMethodFrame(method)) {
                 var continuation = getVariableValue(context.frameProxy, COMPLETION_FIELD_NAME) ?: return null
                 context.keepReference(continuation)
                 return ContinuationHolder(continuation, context, threadProxy)
             } else
                 return null
+        }
+
+        fun coroutineExitFrame(
+            frame: StackFrameProxyImpl,
+            debugProcess: DebugProcessImpl
+        ): XStackFrame? {
+            val suspendContext = debugProcess.debuggerContext.suspendContext ?: return null
+            if (suspendContext.suspendPolicy == EventRequest.SUSPEND_ALL && lookupPreFlight(frame.location().method())) {
+                var frames = frame.threadProxy().frames()
+                val indexOfCurrentFrame = frames.indexOf(frame)
+                if (frames.size > indexOfCurrentFrame) {
+                    val nextFrame = frames[indexOfCurrentFrame + 1] ?: return null
+                    if (isResumeMethodFrame(nextFrame.location().method())) {
+                        val context = ExecutionContext(EvaluationContextImpl(suspendContext, nextFrame), nextFrame)
+                        val ch = lookupForResumeContinuation(context, frame.location().method(), frame.threadProxy()) ?: return null
+                        val coroutineStackTrace = ch.getAsyncStackTraceIfAny()
+                        CoroutinePreflightFrame(frame, nextFrame, indexOfCurrentFrame, coroutineStackTrace)
+                    }
+                }
+            }
+            return null
         }
 
         fun lookupPreFlight(method: Method) =
@@ -265,9 +290,19 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
             val methodGetStackTraceElement = classType.concreteMethodByName("getStackTraceElement", "()Ljava/lang/StackTraceElement;")
             return context.invokeMethod(continuation, methodGetStackTraceElement, emptyList()) as? ObjectReference
         }
-
-
     }
 }
 
 data class FieldVariable(val fieldName: String, val variableName: String)
+
+
+class CoroutinePreflightFrame(
+    val invokeSuspendFrame: StackFrameProxyImpl,
+    val resumeWithFrame: StackFrameProxyImpl,
+    val preflightIndex: Int,
+    val coroutineStackFrame: List<CoroutineStackFrameItem>
+) : KotlinStackFrame(resumeWithFrame) {
+    override fun customizePresentation(component: ColoredTextContainer) {
+        super.customizePresentation(component)
+    }
+}

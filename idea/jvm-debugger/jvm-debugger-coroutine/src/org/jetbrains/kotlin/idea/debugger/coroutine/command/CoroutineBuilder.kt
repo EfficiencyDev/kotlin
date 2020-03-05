@@ -15,9 +15,8 @@ import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.util.containers.ContainerUtil
 import com.intellij.xdebugger.frame.XStackFrame
 import com.sun.jdi.*
-import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineAsyncStackTraceProvider
+import org.jetbrains.kotlin.idea.debugger.coroutine.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.*
-import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.safeLineNumber
 import org.jetbrains.kotlin.idea.debugger.safeLocation
 import org.jetbrains.kotlin.idea.debugger.safeMethod
