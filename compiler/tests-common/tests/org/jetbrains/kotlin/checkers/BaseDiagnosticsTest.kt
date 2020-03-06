@@ -83,7 +83,7 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
     ): TestModule =
         TestModule(name, dependencies, friends)
 
-    override fun createTestFile(module: TestModule?, fileName: String, text: String, directives: Map<String, String>): TestFile =
+    override fun createTestFile(module: TestModule?, fileName: String, text: String, directives: Map<String, String?>): TestFile =
         TestFile(module, fileName, text, directives)
 
 

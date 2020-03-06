@@ -59,7 +59,6 @@ public class TestFiles {
     @NotNull
     public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(String testFileName, String expectedText, TestFileFactory<M , F> factory,
             boolean preserveLocations, String coroutinesPackage, boolean parseDirectivesPerFile) {
-        Map<String, String> directives = KotlinTestUtils.parseDirectives(expectedText);
         Map<String, M> modules = new HashMap<>();
         List<F> testFiles = Lists.newArrayList();
         Map<String, String> allFilesOrCommonPrefixDirectives = parseDirectivesPerFile ? null : parseDirectives(expectedText);
@@ -69,7 +68,7 @@ public class TestFiles {
         if (!matcher.find()) {
             assert testFileName != null : "testFileName should not be null if no FILE directive defined";
             // One file
-            testFiles.add(factory.createFile(null, testFileName, expectedText, parseDirectives(expectedText)));
+            testFiles.add(factory.createFile(null, testFileName, expectedText, parseDirectivesAndFlags(expectedText)));
             commonPrefixOrWholeFile = expectedText;
         }
         else {
