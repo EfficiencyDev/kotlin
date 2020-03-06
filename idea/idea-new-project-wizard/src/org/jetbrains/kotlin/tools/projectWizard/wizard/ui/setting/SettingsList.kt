@@ -1,10 +1,9 @@
 package org.jetbrains.kotlin.tools.projectWizard.wizard.ui.setting
 
 import com.intellij.ui.components.panels.VerticalLayout
-import org.jetbrains.kotlin.tools.projectWizard.core.context.ReadingContext
-import org.jetbrains.kotlin.tools.projectWizard.core.entity.SettingReference
 import org.jetbrains.kotlin.tools.projectWizard.core.entity.ValidationResult
 import org.jetbrains.kotlin.tools.projectWizard.core.entity.isSpecificError
+import org.jetbrains.kotlin.tools.projectWizard.core.entity.settings.SettingReference
 import org.jetbrains.kotlin.tools.projectWizard.wizard.IdeContext
 import org.jetbrains.kotlin.tools.projectWizard.wizard.ui.DynamicComponent
 import org.jetbrains.kotlin.tools.projectWizard.wizard.ui.FocusableComponent
