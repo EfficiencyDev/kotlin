@@ -12,6 +12,7 @@ import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.GeneratedLocation
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
+import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl
 import com.intellij.ui.ColoredTextContainer
 import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.frame.XStackFrame
@@ -307,8 +308,9 @@ class CoroutinePreflightFrame(
     val invokeSuspendFrame: StackFrameProxyImpl,
     val resumeWithFrame: StackFrameProxyImpl,
     val preflightIndex: Int,
-    val coroutineStackFrame: List<CoroutineStackFrameItem>
-) : KotlinStackFrame(resumeWithFrame), JVMStackFrameInfoProvider {
+    val coroutineStackFrame: List<CoroutineStackFrameItem>,
+    val stackFrameDescriptorImpl: StackFrameDescriptorImpl
+) : KotlinStackFrame(stackFrameDescriptorImpl), JVMStackFrameInfoProvider {
     override fun customizePresentation(component: ColoredTextContainer) {
         super.customizePresentation(component)
     }

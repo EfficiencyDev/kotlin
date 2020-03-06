@@ -25,8 +25,10 @@ import org.jetbrains.kotlin.codegen.inline.isFakeLocalVariableForInline
 import org.jetbrains.kotlin.idea.debugger.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.KotlinDebuggerEvaluator
 
-open class KotlinStackFrame(frame: StackFrameProxyImpl) : JavaStackFrame(StackFrameDescriptorImpl(frame, MethodsTracker()), true) {
+open class KotlinStackFrame(stackFrameDescriptorImpl: StackFrameDescriptorImpl) : JavaStackFrame(stackFrameDescriptorImpl, true) {
     private val kotlinVariableViewService = ToggleKotlinVariablesState.getService()
+
+    constructor(frame: StackFrameProxyImpl) : this(StackFrameDescriptorImpl(frame, MethodsTracker()))
 
     private val kotlinEvaluator by lazy {
         val debugProcess = descriptor.debugProcess as DebugProcessImpl // Cast as in JavaStackFrame
