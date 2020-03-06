@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.idea.core.KotlinFileTypeFactory
 import org.jetbrains.kotlin.idea.core.util.CodeInsightUtils
 import org.jetbrains.kotlin.idea.core.util.getLineStartOffset
 import org.jetbrains.kotlin.idea.debugger.breakpoints.getLambdasAtLineIfAny
-import org.jetbrains.kotlin.idea.debugger.coroutine.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.evaluate.KotlinDebuggerCaches
 import org.jetbrains.kotlin.idea.debugger.stackFrame.KotlinStackFrame
 import org.jetbrains.kotlin.idea.decompiler.classFile.KtClsFile
@@ -53,6 +52,8 @@ import org.jetbrains.kotlin.resolve.inline.InlineUtil
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 
 class KotlinPositionManager(private val myDebugProcess: DebugProcess) : MultiRequestPositionManager, PositionManagerEx() {
+    private val stackFrameInterceptor: StackFrameInterceptor = getProjectServiceInstance(myDebugProcess.project)
+
     private val allKotlinFilesScope = object : DelegatingGlobalSearchScope(
         KotlinSourceFilterScope.projectAndLibrariesSources(GlobalSearchScope.allScope(myDebugProcess.project), myDebugProcess.project)
     ) {
@@ -81,7 +82,7 @@ class KotlinPositionManager(private val myDebugProcess: DebugProcess) : MultiReq
 
     override fun createStackFrame(frame: StackFrameProxyImpl, debugProcess: DebugProcessImpl, location: Location): XStackFrame? =
         if (location.isInKotlinSources()) {
-            ContinuationHolder.coroutineExitFrame(frame, debugProcess) ?: KotlinStackFrame(frame)
+            stackFrameInterceptor.createStackFrame(frame, debugProcess, location) ?: KotlinStackFrame(frame)
         } else
             null
 

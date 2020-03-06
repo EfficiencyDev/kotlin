@@ -16,9 +16,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.registry.Registry
 import com.intellij.ui.content.Content
 import com.intellij.util.messages.MessageBusConnection
-import com.intellij.xdebugger.*
+import com.intellij.xdebugger.XDebugProcess
+import com.intellij.xdebugger.XDebugSession
+import com.intellij.xdebugger.XDebuggerManager
+import com.intellij.xdebugger.XDebuggerManagerListener
 import com.intellij.xdebugger.impl.XDebugSessionImpl
-import org.jetbrains.kotlin.idea.debugger.coroutine.util.*
+import org.jetbrains.kotlin.idea.debugger.coroutine.util.CreateContentParamsProvider
 import org.jetbrains.kotlin.idea.debugger.coroutine.view.XCoroutineView
 import org.jetbrains.kotlin.idea.debugger.logger
 import java.util.concurrent.atomic.AtomicInteger

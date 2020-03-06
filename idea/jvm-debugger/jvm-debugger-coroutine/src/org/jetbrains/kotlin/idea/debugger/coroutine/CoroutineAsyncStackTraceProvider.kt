@@ -6,14 +6,20 @@
 package org.jetbrains.kotlin.idea.debugger.coroutine
 
 import com.intellij.debugger.engine.AsyncStackTraceProvider
-import com.intellij.debugger.engine.DebugProcessImpl
 import com.intellij.debugger.engine.JavaStackFrame
 import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
-import org.jetbrains.kotlin.idea.debugger.*
+import org.jetbrains.kotlin.idea.debugger.canRunEvaluation
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.ContinuationHolder
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.CoroutinePreflightFrame
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.AfterCoroutineStackFrameItem
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.CoroutineStackFrameItem
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
+import org.jetbrains.kotlin.idea.debugger.hopelessAware
+import org.jetbrains.kotlin.idea.debugger.isInKotlinSources
+import org.jetbrains.kotlin.idea.debugger.safeMethod
 
 class CoroutineAsyncStackTraceProvider : AsyncStackTraceProvider {
 

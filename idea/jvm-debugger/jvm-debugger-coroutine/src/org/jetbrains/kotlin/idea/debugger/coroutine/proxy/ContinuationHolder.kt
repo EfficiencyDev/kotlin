@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger.coroutine
+package org.jetbrains.kotlin.idea.debugger.coroutine.proxy
 
 import com.intellij.debugger.engine.DebugProcessImpl
 import com.intellij.debugger.engine.JVMStackFrameInfoProvider
@@ -17,8 +17,14 @@ import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.frame.XStackFrame
 import com.sun.jdi.*
 import com.sun.jdi.request.EventRequest
-import org.jetbrains.kotlin.idea.debugger.*
+import org.jetbrains.kotlin.idea.debugger.SUSPEND_LAMBDA_CLASSES
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationValueDescriptorImpl
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.CoroutineStackFrameItem
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.DefaultCoroutineStackFrameItem
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
+import org.jetbrains.kotlin.idea.debugger.isSubtype
+import org.jetbrains.kotlin.idea.debugger.logger
+import org.jetbrains.kotlin.idea.debugger.safeVisibleVariableByName
 import org.jetbrains.kotlin.idea.debugger.stackFrame.KotlinStackFrame
 
 data class ContinuationHolder(val continuation: ObjectReference, val context: ExecutionContext, val threadProxy: ThreadReferenceProxyImpl) {

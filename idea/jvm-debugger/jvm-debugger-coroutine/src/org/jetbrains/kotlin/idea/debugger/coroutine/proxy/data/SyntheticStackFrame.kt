@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger.coroutine
+package org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data
 
 import com.intellij.debugger.engine.JavaStackFrame
 import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl

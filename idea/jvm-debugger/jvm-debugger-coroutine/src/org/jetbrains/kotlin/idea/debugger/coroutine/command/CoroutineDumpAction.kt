@@ -24,10 +24,10 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.text.DateFormatUtil
 import com.intellij.xdebugger.impl.XDebuggerManagerImpl
 import org.jetbrains.kotlin.idea.KotlinBundle
-import org.jetbrains.kotlin.idea.debugger.coroutine.view.CoroutineDumpPanel
 import org.jetbrains.kotlin.idea.debugger.coroutine.coroutineDebuggerEnabled
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineInfoData
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.CoroutineDebugProbesProxy
+import org.jetbrains.kotlin.idea.debugger.coroutine.view.CoroutineDumpPanel
 
 @Suppress("ComponentNotRegistered")
 class CoroutineDumpAction : AnAction(), AnAction.TransparentUpdate {

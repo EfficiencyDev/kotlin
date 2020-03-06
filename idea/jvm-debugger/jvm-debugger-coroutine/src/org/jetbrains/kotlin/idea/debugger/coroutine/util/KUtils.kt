@@ -5,9 +5,6 @@
 
 package org.jetbrains.kotlin.idea.debugger.coroutine.util
 
-import com.intellij.debugger.jdi.StackFrameProxyImpl
-import com.intellij.debugger.ui.impl.watch.MethodsTracker
-import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageType
 import com.intellij.psi.JavaPsiFacade

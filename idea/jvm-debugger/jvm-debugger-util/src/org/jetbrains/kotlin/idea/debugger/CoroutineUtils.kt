@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.idea.debugger
 
+import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.idea.KotlinIconProviderService
 import kotlin.coroutines.Continuation
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -31,4 +34,11 @@ class LoggerDelegate : ReadOnlyProperty<Any, Logger> {
             logger = Logger.getInstance(thisRef.javaClass)
         return logger
     }
+}
+
+inline fun <reified T> getProjectServiceInstance(project: Project): T {
+    val service = ServiceManager.getService(project, T::class.java)
+    if (service == null)
+        throw IllegalStateException("Instance of service type ${T::class.java} can't be found. Check if service has been registered.")
+    return service
 }

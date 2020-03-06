@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger.coroutine
+package org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data
 
 import com.intellij.debugger.DebuggerContext
 import com.intellij.debugger.engine.evaluation.EvaluateException
@@ -11,6 +11,7 @@ import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.ui.impl.watch.ValueDescriptorImpl
 import com.intellij.openapi.project.Project
 import com.sun.jdi.Value
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.ContinuationHolder
 
 class ContinuationValueDescriptorImpl(
     project: Project,

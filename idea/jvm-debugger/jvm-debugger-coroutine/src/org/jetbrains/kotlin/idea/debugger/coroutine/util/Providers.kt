@@ -5,13 +5,10 @@
 
 package org.jetbrains.kotlin.idea.debugger.coroutine.util
 
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.xdebugger.XDebugSession
 import com.intellij.xdebugger.XDebugSessionListener
 import javax.swing.Icon
 import javax.swing.JComponent
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
 
 interface CreateContentParamsProvider {
     fun createContentParams() : CreateContentParams
