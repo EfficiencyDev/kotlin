@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineAsyncStackTraceProv
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineInfoData
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.*
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.isPreFlight
 import org.jetbrains.kotlin.idea.debugger.safeLineNumber
 import org.jetbrains.kotlin.idea.debugger.safeLocation
 import org.jetbrains.kotlin.idea.debugger.safeMethod
@@ -48,7 +49,7 @@ class CoroutineBuilder(val suspendContext: SuspendContextImpl) {
             for (i in 0 until realFrames.size) {
                 val runningStackFrameProxy = realFrames[i]
                 val jStackFrame = executionStack.createStackFrame(runningStackFrameProxy)
-                if (ContinuationHolder.lookupPreFlight(runningStackFrameProxy.location().method())) {
+                if (runningStackFrameProxy.location().isPreFlight()) {
                     preflightFound = true
                     continue
                 }

@@ -185,7 +185,7 @@ class CoroutineDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         (executionContext.invokeMethod(args, refs.sizeRef, emptyList()) as IntegerValue).value()
 
     private fun executionContext() :  ExecutionContext {
-        val evaluationContextImpl = EvaluationContextImpl(suspendContext as SuspendContextImpl, suspendContext.frameProxy)
+        val evaluationContextImpl = EvaluationContextImpl(suspendContext, suspendContext.frameProxy)
         return ExecutionContext(evaluationContextImpl, suspendContext.frameProxy as StackFrameProxyImpl)
     }
 

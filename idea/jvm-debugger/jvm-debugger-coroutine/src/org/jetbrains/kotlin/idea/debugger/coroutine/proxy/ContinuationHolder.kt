@@ -8,40 +8,41 @@ package org.jetbrains.kotlin.idea.debugger.coroutine.proxy
 import com.intellij.debugger.engine.DebugProcessImpl
 import com.intellij.debugger.engine.JVMStackFrameInfoProvider
 import com.intellij.debugger.engine.JavaValue
+import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.GeneratedLocation
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
+import com.intellij.debugger.ui.impl.watch.MethodsTracker
 import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl
-import com.intellij.ui.ColoredTextContainer
+import com.intellij.xdebugger.frame.XCompositeNode
 import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.frame.XStackFrame
+import com.intellij.xdebugger.frame.XValueChildrenList
 import com.sun.jdi.*
-import com.sun.jdi.request.EventRequest
-import org.jetbrains.kotlin.idea.debugger.SUSPEND_LAMBDA_CLASSES
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationValueDescriptorImpl
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.CoroutineStackFrameItem
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.DefaultCoroutineStackFrameItem
+import org.jetbrains.kotlin.idea.debugger.coroutine.util.CoroutineExecutionContext
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 import org.jetbrains.kotlin.idea.debugger.isSubtype
 import org.jetbrains.kotlin.idea.debugger.logger
-import org.jetbrains.kotlin.idea.debugger.safeVisibleVariableByName
 import org.jetbrains.kotlin.idea.debugger.stackFrame.KotlinStackFrame
 
-data class ContinuationHolder(val continuation: ObjectReference, val context: ExecutionContext, val threadProxy: ThreadReferenceProxyImpl) {
+data class ContinuationHolder(val continuation: ObjectReference, val context: CoroutineExecutionContext) {
     val log by logger
 
     fun getAsyncStackTraceIfAny(): List<CoroutineStackFrameItem> {
         val frames = mutableListOf<CoroutineStackFrameItem>()
         try {
-            collectFramesRecursively(frames)
+            collectFrames(frames)
         } catch (e: Exception) {
             log.error("Error while looking for variables.", e)
         }
         return frames
     }
 
-    private fun collectFramesRecursively(consumer: MutableList<CoroutineStackFrameItem>) {
+    private fun collectFrames(consumer: MutableList<CoroutineStackFrameItem>) {
         var completion = this
         val debugMetadataKtType = debugMetadataKtType() ?: return
         while (completion.isBaseContinuationImpl()) {
@@ -67,12 +68,10 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
     }
 
     private fun invokeGetStackTraceElement(continuation: ContinuationHolder, debugMetadataKtType: ClassType): ObjectReference? {
-
         val stackTraceElement =
             context.invokeMethodAsObject(debugMetadataKtType, "getStackTraceElement", continuation.value()) ?: return null
 
         stackTraceElement.referenceType().takeIf { it.name() == StackTraceElement::class.java.name } ?: return null
-
         context.keepReference(stackTraceElement)
         return stackTraceElement
     }
@@ -144,7 +143,7 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
         val type = continuation.type()
         if (type is ClassType && isBaseContinuationImpl(type)) {
             val completionField = type.fieldByName(COMPLETION_FIELD_NAME) ?: return null
-            return ContinuationHolder(continuation.getValue(completionField) as? ObjectReference ?: return null, context, threadProxy)
+            return ContinuationHolder(continuation.getValue(completionField) as? ObjectReference ?: return null, context)
         }
         return null
     }
@@ -176,68 +175,53 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
 //            }
         }
 
-        fun lookupForResumeContinuation(
-            context: ExecutionContext,
-            method: Method,
-            threadProxy: ThreadReferenceProxyImpl
+        fun lookupForResumeMethodContinuation(
+            suspendContext: SuspendContextImpl?,
+            frame: StackFrameProxyImpl
         ): ContinuationHolder? {
-            if (isResumeMethodFrame(method)) {
-                var continuation = getVariableValue(context.frameProxy, COMPLETION_FIELD_NAME) ?: return null
+            if (suspendContext != null && frame.location().isResumeWith()) {
+                val context = suspendContext.executionContext()
+                var continuation = frame.variableValue(COMPLETION_FIELD_NAME) ?: return null
                 context.keepReference(continuation)
-                return ContinuationHolder(continuation, context, threadProxy)
+                return ContinuationHolder(continuation, context)
             } else
                 return null
         }
 
         fun coroutineExitFrame(
             frame: StackFrameProxyImpl,
-            debugProcess: DebugProcessImpl
+            suspendContext : SuspendContextImpl
         ): XStackFrame? {
-            val suspendContext = debugProcess.debuggerContext.suspendContext ?: return null
-            if (suspendContext.suspendPolicy == EventRequest.SUSPEND_ALL && lookupPreFlight(frame.location().method())) {
+            if (frame.location().isPreFlight()) {
                 var frames = frame.threadProxy().frames()
                 val indexOfCurrentFrame = frames.indexOf(frame)
                 if (frames.size > indexOfCurrentFrame) {
                     val nextFrame = frames[indexOfCurrentFrame + 1] ?: return null
-                    if (isResumeMethodFrame(nextFrame.location().method())) {
-                        val context = ExecutionContext(EvaluationContextImpl(suspendContext, nextFrame), nextFrame)
-                        val ch = lookupForResumeContinuation(context, nextFrame.location().method(), frame.threadProxy()) ?: return null
-                        val coroutineStackTrace = ch.getAsyncStackTraceIfAny()
-                        return CoroutinePreflightFrame(frame, nextFrame, indexOfCurrentFrame, coroutineStackTrace)
-                    }
+                    val ch = lookupForResumeMethodContinuation(suspendContext, nextFrame) ?: return null
+
+                    val coroutineStackTrace = ch.getAsyncStackTraceIfAny()
+                    val topRestoredFrame = coroutineStackTrace.first()
+                    val firstRestoredFrame =
+                        object : StackFrameProxyImpl(frame.threadProxy(), frame.stackFrame, frame.indexFromBottom) {
+                            val location = topRestoredFrame.location
+                            override fun location(): Location {
+                                return location
+                            }
+                        }
+                    var descriptor = StackFrameDescriptorImpl(firstRestoredFrame, MethodsTracker())
+                    return CoroutinePreflightFrame(
+                        frame,
+                        nextFrame,
+                        indexOfCurrentFrame,
+                        coroutineStackTrace.drop(1),
+                        descriptor,
+                        topRestoredFrame
+                    )
                 }
             }
             return null
         }
 
-        fun lookupPreFlight(method: Method) =
-            isInvokeSuspendMethod(method) && method.location().lineNumber() == -1
-
-        fun isResumeMethodFrame(method: Method) =
-            method.name() == "resumeWith"
-
-        private fun getVariableValue(sfp: StackFrameProxyImpl, variableName: String): ObjectReference? {
-            val continuationVariable = sfp.safeVisibleVariableByName(variableName) ?: return null
-            return sfp.getValue(continuationVariable) as? ObjectReference ?: return null
-        }
-
-        private fun isInvokeSuspendMethod(method: Method): Boolean =
-            method.name() == "invokeSuspend" && method.signature() == "(Ljava/lang/Object;)Ljava/lang/Object;"
-
-        /**
-         * @TODO
-         * Checks if the method has a Continuation as input parameter.
-         */
-        private fun isSuspendMethod(method: Method): Boolean {
-            val argTypes = method.argumentTypes()
-            for (arg in argTypes) {
-                println(arg)
-            }
-            return "Lkotlin/coroutines/Continuation;)" in method.signature()
-        }
-
-        private fun isSuspendLambda(referenceType: ReferenceType): Boolean =
-            SUSPEND_LAMBDA_CLASSES.any { referenceType.isSubtype(it) }
 
         /**
          * Find continuation for the [frame]
@@ -245,41 +229,27 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
          * @return null if matching continuation is not found or is not BaseContinuationImpl
          */
         fun lookup(
-            context: ExecutionContext,
+            context: SuspendContextImpl,
             initialContinuation: ObjectReference?,
-            frame: StackTraceElement,
-            threadProxy: ThreadReferenceProxyImpl
+//            frame: StackTraceElement,
+//            threadProxy: ThreadReferenceProxyImpl
         ): ContinuationHolder? {
             var continuation = initialContinuation ?: return null
-            val classLine = ClassNameLineNumber(frame.className, frame.lineNumber)
+//            val classLine = ClassNameLineNumber(frame.className, frame.lineNumber)
+            val executionContext = context.executionContext()
 
             do {
-                val position = getClassAndLineNumber(context, continuation)
+//                val position = getClassAndLineNumber(executionContext, continuation)
                 // while continuation is BaseContinuationImpl and it's frame equals to the current
-                continuation = getNextFrame(context, continuation) ?: return null
-            } while (isSubtypeOfBaseContinuationImpl(continuation.type()) && position != classLine)
+                continuation = getNextFrame(executionContext, continuation) ?: return null
+            } while (isSubtypeOfBaseContinuationImpl(continuation.type())  /* && position != classLine */)
 
 
             return if (isSubtypeOfBaseContinuationImpl(continuation.type()))
-                ContinuationHolder(continuation, context, threadProxy)
+                ContinuationHolder(continuation, executionContext)
             else
                 return null
         }
-
-        /**
-         * Finds previous Continuation for this Continuation (completion field in BaseContinuationImpl)
-         * @return null if given ObjectReference is not a BaseContinuationImpl instance or completion is null
-         */
-        private fun getNextFrame(context: ExecutionContext, continuation: ObjectReference): ObjectReference? {
-            if (!isSubtypeOfBaseContinuationImpl(continuation.type()))
-                return null
-            val type = continuation.type() as ClassType
-            val next = type.concreteMethodByName("getCompletion", "()Lkotlin/coroutines/Continuation;")
-            return context.invokeMethod(continuation, next, emptyList()) as? ObjectReference
-        }
-
-        fun isSubtypeOfBaseContinuationImpl(type: Type) =
-            type.isSubtype(BASE_CONTINUATION_IMPL_CLASS_NAME)
 
         data class ClassNameLineNumber(val className: String?, val lineNumber: Int?)
 
@@ -303,22 +273,3 @@ data class ContinuationHolder(val continuation: ObjectReference, val context: Ex
 
 data class FieldVariable(val fieldName: String, val variableName: String)
 
-
-class CoroutinePreflightFrame(
-    val invokeSuspendFrame: StackFrameProxyImpl,
-    val resumeWithFrame: StackFrameProxyImpl,
-    val preflightIndex: Int,
-    val coroutineStackFrame: List<CoroutineStackFrameItem>,
-    val stackFrameDescriptorImpl: StackFrameDescriptorImpl
-) : KotlinStackFrame(stackFrameDescriptorImpl), JVMStackFrameInfoProvider {
-    override fun customizePresentation(component: ColoredTextContainer) {
-        super.customizePresentation(component)
-    }
-
-    override fun isInLibraryContent() =
-        true
-
-    override fun isSynthetic() =
-        true
-
-}

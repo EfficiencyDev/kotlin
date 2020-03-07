@@ -313,8 +313,7 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
                         }
                         is SuspendCoroutineStackFrameItem -> {
                             val threadProxy = threadSuspendContext.thread as ThreadReferenceProxyImpl
-                            val executionContext = executionContext(threadSuspendContext, frame.frame)
-                            createStackAndSetFrame(threadProxy, { createSyntheticStackFrame(executionContext, frame) })
+                            createStackAndSetFrame(threadProxy, { createSyntheticStackFrame(threadSuspendContext, frame) })
                         }
                         is RestoredCoroutineStackFrameItem -> {
                             val threadProxy = frame.frame.threadProxy()
@@ -388,7 +387,7 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
     }
 
     private fun createSyntheticStackFrame(
-        executionContext: ExecutionContext,
+        suspendContext: SuspendContextImpl,
         frame: SuspendCoroutineStackFrameItem
     ): SyntheticStackFrame? {
 
@@ -396,7 +395,7 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
             applicationThreadExecutor.readAction { getPosition(frame.stackTraceElement.className, frame.stackTraceElement.lineNumber) }
                 ?: return null
         val continuation =
-            ContinuationHolder.lookup(executionContext, frame.lastObservedFrameFieldRef, frame.stackTraceElement, frame.frame.threadProxy())
+            ContinuationHolder.lookup(suspendContext, frame.lastObservedFrameFieldRef)
                 ?: return null
 
         return SyntheticStackFrame(

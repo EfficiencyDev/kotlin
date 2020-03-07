@@ -38,7 +38,6 @@ class LoggerDelegate : ReadOnlyProperty<Any, Logger> {
 
 inline fun <reified T> getProjectServiceInstance(project: Project): T {
     val service = ServiceManager.getService(project, T::class.java)
-    if (service == null)
-        throw IllegalStateException("Instance of service type ${T::class.java} can't be found. Check if service has been registered.")
+        ?: throw IllegalStateException("Instance of service type ${T::class.java} can't be found. Check if service has been registered.")
     return service
 }
